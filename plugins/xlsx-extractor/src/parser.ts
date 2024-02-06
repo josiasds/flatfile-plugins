@@ -1,5 +1,5 @@
 import { SheetCapture, WorkbookCapture } from '@flatfile/util-extractor'
-import { mapKeys, mapValues, omit } from 'remeda'
+import { mapKeys, mapValues } from 'remeda'
 import { Readable } from 'stream'
 import * as XLSX from 'xlsx'
 import { GetHeadersOptions, Headerizer } from './header.detection'
