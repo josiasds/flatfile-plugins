@@ -125,13 +125,12 @@ async function convertSheet(
       value?.toString().includes('*') ?? false,
     ])
   )
+  const validRows = rows.filter(
+    (row) => !Object.values(row).every(isNullOrWhitespace)
+  )
 
   let data = []
   if (verticalHeader) {
-    const validRows = rows.filter(
-      (row) => !Object.values(row).every(isNullOrWhitespace)
-    )
-
     // transpose each column into a row
     columnKeys.forEach((key) => {
       if (key === 'A') return null
@@ -145,14 +144,12 @@ async function convertSheet(
       data.push(transposedRow)
     })
   } else {
-    data = rows
-      .filter((row) => !Object.values(row).every(isNullOrWhitespace))
-      .map((row) =>
-        mapValues(
-          mapKeys(row, (key) => headers[key]),
-          (value) => ({ value })
-        )
+    data = validRows.map((row) =>
+      mapValues(
+        mapKeys(row, (key) => headers[key]),
+        (value) => ({ value })
       )
+    )
   }
 
   return {
