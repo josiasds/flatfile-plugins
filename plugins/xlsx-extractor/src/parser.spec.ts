@@ -4,35 +4,40 @@ import * as path from 'path'
 import { parseBuffer } from './parser'
 
 describe('parser', () => {
-  const buffer: Buffer = fs.readFileSync(
-    path.join(__dirname, '../ref/test-basic.xlsx')
-  )
-  let capture: WorkbookCapture
-  beforeAll(async () => {
-    capture = await parseBuffer(buffer)
-  })
-  test('Excel to WorkbookCapture', async () => {
-    expect(capture.Departments).toEqual({
-      headers: ['Code', 'Details', 'BranchName', 'Tenant'],
-      required: { Code: true, Details: false, BranchName: true, Tenant: true },
-      data: [
-        {
-          Code: { value: 'Personal Care' },
-          Details: { value: 'Personal Care Department' },
-          BranchName: { value: null },
-          Tenant: { value: 'notdata' },
-        },
-        {
-          Code: { value: 'Home Nursing' },
-          Details: { value: 'Home Nursing Department' },
-          BranchName: { value: null },
-          Tenant: { value: 'notdata' },
-        },
-      ],
-    })
-  })
-
   describe('test-basic.xlsx', () => {
+    const buffer: Buffer = fs.readFileSync(
+      path.join(__dirname, '../ref/test-basic.xlsx')
+    )
+    let capture: WorkbookCapture
+    beforeAll(async () => {
+      capture = await parseBuffer(buffer)
+    })
+    test('Excel to WorkbookCapture', async () => {
+      expect(capture.Departments).toEqual({
+        headers: ['Code', 'Details', 'BranchName', 'Tenant'],
+        required: {
+          Code: true,
+          Details: false,
+          BranchName: true,
+          Tenant: true,
+        },
+        data: [
+          {
+            Code: { value: 'Personal Care' },
+            Details: { value: 'Personal Care Department' },
+            BranchName: { value: null },
+            Tenant: { value: 'notdata' },
+          },
+          {
+            Code: { value: 'Home Nursing' },
+            Details: { value: 'Home Nursing Department' },
+            BranchName: { value: null },
+            Tenant: { value: 'notdata' },
+          },
+        ],
+      })
+    })
+
     test('finds all the sheet names', async () => {
       expect(Object.keys(capture)).toEqual([
         'Departments',
@@ -148,6 +153,42 @@ describe('parser', () => {
         Rebates_11: false,
         Purchases_11: false,
       })
+    })
+  })
+
+  describe('test-vertical.xlsx', () => {
+    const buffer: Buffer = fs.readFileSync(
+      path.join(__dirname, '../ref/test-vertical.xlsx')
+    )
+    let capture: WorkbookCapture
+    beforeAll(async () => {
+      capture = await parseBuffer(buffer)
+    })
+
+    test('parses vertical headers', async () => {
+      capture = await parseBuffer(buffer, {
+        headerDetectionOptions: { algorithm: 'vertical' },
+      })
+      expect(capture['Users'].headers).toEqual(['Name', 'Age', 'Salary'])
+      expect(capture['Users'].data).toEqual([
+        {
+          Name: { value: 'Joe' },
+          Age: { value: '34' },
+          Salary: { value: '75000' },
+        },
+        {
+          Name: { value: 'Bethany' },
+          Age: { value: '25' },
+          Salary: { value: '90000' },
+        },
+      ])
+    })
+
+    test('parses vertical headers up to a maximum row', async () => {
+      capture = await parseBuffer(buffer, {
+        headerDetectionOptions: { algorithm: 'vertical', rowsToSearch: 2 },
+      })
+      expect(capture['Users'].headers).toEqual(['Name', 'Age'])
     })
   })
 })

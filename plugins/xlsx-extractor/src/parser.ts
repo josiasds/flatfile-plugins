@@ -1,5 +1,5 @@
 import { SheetCapture, WorkbookCapture } from '@flatfile/util-extractor'
-import { mapKeys, mapValues } from 'remeda'
+import { mapKeys, mapValues, omit } from 'remeda'
 import { Readable } from 'stream'
 import * as XLSX from 'xlsx'
 import { GetHeadersOptions, Headerizer } from './header.detection'
@@ -80,6 +80,8 @@ async function convertSheet(
   raw: boolean = false,
   headerDetectionOptions?: GetHeadersOptions
 ): Promise<SheetCapture | undefined> {
+  const verticalHeader = headerDetectionOptions.algorithm === 'vertical'
+
   let rows = XLSX.utils.sheet_to_json<Record<string, any>>(sheet, {
     header: 'A',
     defval: null,
@@ -99,7 +101,10 @@ async function convertSheet(
   const headerStream = Readable.from(extractValues(rows))
   const { header, skip } = await headerizer.getHeaders(headerStream)
 
-  rows.splice(0, skip)
+  if (!verticalHeader) {
+    rows.splice(0, skip)
+  }
+
   // return if there are no rows
   if (rows.length === 0) {
     return
@@ -121,14 +126,34 @@ async function convertSheet(
     ])
   )
 
-  const data = rows
-    .filter((row) => !Object.values(row).every(isNullOrWhitespace))
-    .map((row) =>
-      mapValues(
-        mapKeys(row, (key) => headers[key]),
-        (value) => ({ value })
-      )
+  let data = []
+  if (verticalHeader) {
+    const validRows = rows.filter(
+      (row) => !Object.values(row).every(isNullOrWhitespace)
     )
+
+    // transpose each column into a row
+    columnKeys.forEach((key) => {
+      if (key === 'A') return null
+      const transposedRow = validRows.reduce(
+        (result, row) => ({
+          ...result,
+          [row['A']]: { value: row[key] },
+        }),
+        {}
+      )
+      data.push(transposedRow)
+    })
+  } else {
+    data = rows
+      .filter((row) => !Object.values(row).every(isNullOrWhitespace))
+      .map((row) =>
+        mapValues(
+          mapKeys(row, (key) => headers[key]),
+          (value) => ({ value })
+        )
+      )
+  }
 
   return {
     headers: Object.values(headers).filter(Boolean),

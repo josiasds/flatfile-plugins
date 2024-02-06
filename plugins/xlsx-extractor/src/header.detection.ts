@@ -28,12 +28,18 @@ interface NewfangledOptions {
   algorithm: 'newfangled'
 }
 
+interface VerticalOptions {
+  algorithm: 'vertical'
+  rowsToSearch?: number
+}
+
 export type GetHeadersOptions =
   | DefaultOptions
   | ExplicitHeadersOptions
   | SpecificRowsOptions
   | DataRowAndSubHeaderDetectionOptions
   | NewfangledOptions
+  | VerticalOptions
 
 interface GetHeadersResult {
   header: string[]
@@ -53,6 +59,8 @@ export abstract class Headerizer {
         return new SpecificRows(options)
       case 'dataRowAndSubHeaderDetection':
         return new DataRowAndSubHeaderDetection(options)
+      case 'vertical':
+        return new VerticalHeader(options)
       case 'newfangled':
         throw new Error('Not implemented')
       default:
@@ -116,6 +124,48 @@ class OriginalDetector extends Headerizer {
       })
       dataStream.on('close', () => {
         resolve({ header, skip })
+      })
+      dataStream.on('error', (error) => {
+        reject(error)
+      })
+    })
+  }
+}
+
+// This implementation looks at the first column of each row
+class VerticalHeader extends Headerizer {
+  private rowsToSearch: number
+
+  constructor(private readonly options: VerticalOptions) {
+    super()
+    this.rowsToSearch = options.rowsToSearch || Infinity
+  }
+
+  async getHeaders(dataStream: stream.Readable): Promise<GetHeadersResult> {
+    let header: string[] = []
+    let currentRow = 0
+
+    const detector = new stream.Writable({
+      objectMode: true,
+      write: (row, encoding, callback) => {
+        currentRow++
+        if (currentRow > this.rowsToSearch) {
+          dataStream.destroy()
+        } else if (row[0].trim() !== '') {
+          header.push(row[0].trim())
+        }
+        callback()
+      },
+    })
+
+    dataStream.pipe(detector, { end: true })
+
+    return new Promise((resolve, reject) => {
+      detector.on('finish', () => {
+        resolve({ header, skip: 0 })
+      })
+      dataStream.on('close', () => {
+        resolve({ header, skip: 0 })
       })
       dataStream.on('error', (error) => {
         reject(error)
